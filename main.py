@@ -1,7 +1,4 @@
-from collections import defaultdict
-from statistics import mean
 import os
-from tabulate import tabulate
 
 os.system('cls')
 
@@ -14,7 +11,7 @@ def FormatReal(my_value):
 def Mes(valor):
     valorF = 0
     i = int(valor) - 1
-    m1 = [[0, 1, 2, 3, 4, 5, 6], ["Jan.", "Fev.", "Mar.", "Abr.", "Mai.", "Jun."]]
+    m1 = [[0,1,2,3,4,5,6,7,8,9,10,11,12], ["Jan.", "Fev.", "Mar.", "Abr.", "Mai.", "Jun.","Jul.", "Ago.", "Set.", "Out.", "Nov.", "Dez."]]
     if i in m1[0]:
         valorF = m1[1][i]
     return valorF
@@ -49,47 +46,3 @@ def Processo(filename):
             })
 
     return data
-
-def print_table(data):
-    if len(data) == 0:
-        print("Nenhum dado encontrado.")
-        return
-    
-    print(tabulate(data, headers="keys", tablefmt="grid", numalign="right", stralign="left"))
-
-filename = 'dados.txt'
-dados = Processo(filename)
-
-grupo_mes = defaultdict(lambda: {'fechamentos': [], 'volumes': []})
-
-for entrada in dados:
-    data_mes = Mes(entrada['Data'][4:6])
-    fechamento = float(entrada['Fecham.'].replace(',', '.'))
-    volume = float(entrada['Volume'])
-    chave = (entrada['Tick.'], data_mes)
-    grupo_mes[chave]['fechamentos'].append(fechamento)
-    grupo_mes[chave]['volumes'].append(volume)
-
-
-liquidez_mensal = []
-for chave, valores in grupo_mes.items():
-    ticker, mes = chave
-    media_fechamento = mean(valores['fechamentos'])
-    media_volume = mean(valores['volumes'])
-    liquidez = media_fechamento * media_volume
-    if liquidez > 3000000:
-        liquidez_mensal.append({
-            'Tick.': ticker,
-            'Mês': mes,
-            'M. Fech.': FormatReal(media_fechamento),
-            'M. Volume': int(media_volume),
-            'Liquidez Mens.': FormatReal(liquidez),
-        })
-
-liquidez_mensal.sort(key=lambda x: x['Tick.'])
-print_table(liquidez_mensal)
-
-'''
-dados.sort(key=lambda x: x['Tick.'])
-print_table(dados)
-'''
