@@ -1,6 +1,25 @@
 import os
+from tabulate import tabulate
 
 os.system('cls')
+
+def LoadTxt(tipo='todos'):
+    L0=[] # Lista que recebrá TXT
+    L1={} # DCT que receberá a lista
+    with open("main.txt",'r') as Dados:
+        for i in Dados:
+            if tipo == 'todos':
+                L0.append(i.strip().split(","))
+            elif tipo in i:
+                L0.append(i.strip().split(","))
+    for i in L0: # Tranforma lista em dicionario
+        L1[i[0]]=[i[1],i[2]]
+    return L1
+
+def SaveTxtL(Dict):
+    with open("login.txt", 'w') as Dados:
+        for chave,dados in Dict.items():
+            Dados.write(f"{chave},{dados[0]},{dados[1]}\n")
 
 def FormatReal(my_value):
     a = '{:,.2f}'.format(float(my_value))
@@ -36,7 +55,7 @@ def Processo(filename):
         ticker = line[12:24].strip()
         if ticker.endswith('3') or ticker.endswith('4'): 
             data.append({
-                'Data': line[2:10].strip(),
+                'Data': Mes(line[6:8].strip()),
                 'Tick.': ticker,
                 'Abert.': FormatValor(line[56:69].strip()),
                 'Máx.': FormatValor(line[78:82].strip()),
@@ -46,3 +65,13 @@ def Processo(filename):
             })
 
     return data
+def Main():
+    dados = Processo("dados.txt")
+
+    if dados:
+        print(tabulate(dados, headers="keys", tablefmt="grid", stralign="center"))
+    else:
+        print("Nenhum dado processado.")
+
+
+Main()
