@@ -1,5 +1,14 @@
 import os
 from tabulate import tabulate
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import pandas as pd
+
+filename = 'sistema-b3-13fce9d509f7.json'
+scopes = ['https://www.spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+creds = ServiceAccountCredentials.from_json_keyfile_name(filename=filename, scopes=scopes)
+client = gspread.authorize(creds)
+print(client)
 
 os.system('cls')
 
