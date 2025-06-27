@@ -11,8 +11,9 @@ scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
+
 keyfile_dict = json.loads(os.getenv('GOOGLE_CREDENTIALS'))
-creds = ServiceAccountCredentials.from_json_keyfile_name('sistema-b3-13fce9d509f7.json', scopes)
+creds = ServiceAccountCredentials.from_json_keyfile_dict(keyfile_dict, scopes)
 
 app = Flask(__name__)
 
