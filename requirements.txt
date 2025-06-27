@@ -2,5 +2,5 @@ Flask==3.0.2
 gunicorn==21.2.0
 gspread==5.12.0
 oauth2client==4.1.3
-pandas==2.2.2
+pandas==2.1.4
 gspread-dataframe==3.3.1
