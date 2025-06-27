@@ -1,8 +1,18 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify # type: ignore
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
-from gspread_dataframe import set_with_dataframe
+from gspread_dataframe import set_with_dataframe # type: ignore
+import json
+import os
+
+
+scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+keyfile_dict = json.loads(os.getenv('GOOGLE_CREDENTIALS'))
+creds = ServiceAccountCredentials.from_json_keyfile_name('sistema-b3-13fce9d509f7.json', scopes)
 
 app = Flask(__name__)
 
@@ -49,11 +59,6 @@ def pesquisar():
     body = request.json
     pesquisa = body.get("ticker", "").strip().upper()
 
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
-    creds = ServiceAccountCredentials.from_json_keyfile_name('sistema-b3-13fce9d509f7.json', scopes)
     client = gspread.authorize(creds)
     planilha = client.open("Análise de investimentos").worksheet("ETL")
 
