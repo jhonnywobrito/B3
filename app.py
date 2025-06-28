@@ -1,50 +1,48 @@
-from flask import Flask, request, jsonify # type: ignore
+from flask import Flask, request, jsonify
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-import pandas as pd
-from gspread_dataframe import set_with_dataframe # type: ignore
-import json
-import os
+from gspread_dataframe import set_with_dataframe
+import json, os, io, pandas as pd
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
 
-
-scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
-
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive.readonly"
+]
 keyfile_dict = json.loads(os.getenv('GOOGLE_CREDENTIALS'))
-creds = ServiceAccountCredentials.from_json_keyfile_dict(keyfile_dict, scopes)
+credentials = service_account.Credentials.from_service_account_info(keyfile_dict, scopes=SCOPES)
+drive_service = build('drive', 'v3', credentials=credentials)
 
-app = Flask(__name__)
+def encontrar_id_por_nome_na_pasta(folder_id, nome_arquivo):
+    query = f"'{folder_id}' in parents and name = '{nome_arquivo}' and trashed = false"
+    resp = drive_service.files().list(q=query, fields="files(id, name)").execute()
+    arquivos = resp.get('files', [])
+    return arquivos[0]['id'] if arquivos else None
+
+def baixar_drive(file_id, destino):
+    req = drive_service.files().get_media(fileId=file_id)
+    fh = io.FileIO(destino, 'wb')
+    downloader = MediaIoBaseDownload(fh, req)
+    done = False
+    while not done:
+        status, done = downloader.next_chunk()
+    fh.close()
 
 def FormatarValor(valor_str):
-    try:
-        return float(valor_str) / 100
-    except:
-        return None
-
-def Mes(mes_str):
-    meses = {
-        '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr',
-        '05': 'Mai', '06': 'Jun', '07': 'Jul', '08': 'Ago',
-        '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'
-    }
-    return meses.get(mes_str.zfill(2), mes_str)
+    try: return float(valor_str) / 100
+    except: return None
 
 def Processo(filename):
-    with open(filename, 'r', encoding='utf-8') as file:
-        lines = file.readlines()[1:]
-
+    with open(filename, 'r', encoding='utf-8') as f:
+        lines = f.readlines()[1:]
     data = []
     for line in lines:
         ticker = line[12:17].strip()
         if ticker.endswith('3') or ticker.endswith('4'):
-            data_bruta = line[2:10]
-            ano = data_bruta[0:4]
-            mes = data_bruta[4:6]
-            dia = data_bruta[6:8]
+            d = line[2:10]
             data.append({
-                'Data': f"{dia}/{mes}/{ano}",
+                'Data': f"{d[6:8]}/{d[4:6]}/{d[0:4]}",
                 'Tick.': ticker,
                 'Abert.': FormatarValor(line[56:69]),
                 'Max.': FormatarValor(line[69:82]),
@@ -52,24 +50,31 @@ def Processo(filename):
                 'Fecham.': FormatarValor(line[108:121]),
                 'Volume': int(line[152:170].lstrip('0') or '0')
             })
-
     return pd.DataFrame(data)
+
+app = Flask(__name__)
 
 @app.route('/', methods=['POST'])
 def pesquisar():
-    body = request.json
-    pesquisa = body.get("ticker", "").strip().upper()
-
-    client = gspread.authorize(creds)
-    planilha = client.open("Análise de investimentos").worksheet("ETL")
-
-    df = Processo('dados.txt')
-    df_filtrado = df[df['Tick.'].str.contains(pesquisa)]
-
-    planilha.clear()
-    set_with_dataframe(planilha, df_filtrado)
-
-    return jsonify({"status": "ok", "linhas": len(df_filtrado)})
+    pasta_id = "11XYVzfUxrBkGEvgQE6ZVkKaOntfFHfvh"
+    arquivos = request.json.get("ticker","").strip().upper()
+    file_id = encontrar_id_por_nome_na_pasta(pasta_id, "dados.txt")
+    
+    if not file_id:
+        return jsonify({"status":"erro","msg":"dados.txt não encontrado"}), 404
+    destino = '/tmp/dados.txt'
+    
+    baixar_drive(file_id, destino)
+    df = Processo(destino)
+    
+    df_filtrado = df[df['Tick.'].str.contains(arquivos)]
+    
+    gs = gspread.authorize(credentials)
+    plan = gs.open("Análise de investimentos").worksheet("ETL")
+    
+    plan.clear()
+    set_with_dataframe(plan, df_filtrado)
+    return jsonify({"status":"ok","linhas":len(df_filtrado)})
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
