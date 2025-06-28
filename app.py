@@ -10,7 +10,13 @@ SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive.readonly"
 ]
-keyfile_dict = json.loads(os.getenv('GOOGLE_CREDENTIALS'))
+
+# Verifica e carrega as credenciais
+cred_str = os.getenv('GOOGLE_CREDENTIALS')
+if not cred_str:
+    raise RuntimeError("A variável de ambiente GOOGLE_CREDENTIALS não foi definida.")
+
+keyfile_dict = json.loads(cred_str)
 credentials = service_account.Credentials.from_service_account_info(keyfile_dict, scopes=SCOPES)
 drive_service = build('drive', 'v3', credentials=credentials)
 
@@ -21,17 +27,22 @@ def encontrar_id_por_nome_na_pasta(folder_id, nome_arquivo):
     return arquivos[0]['id'] if arquivos else None
 
 def baixar_drive(file_id, destino):
-    req = drive_service.files().get_media(fileId=file_id)
-    fh = io.FileIO(destino, 'wb')
-    downloader = MediaIoBaseDownload(fh, req)
-    done = False
-    while not done:
-        status, done = downloader.next_chunk()
-    fh.close()
+    try:
+        req = drive_service.files().get_media(fileId=file_id)
+        fh = io.FileIO(destino, 'wb')
+        downloader = MediaIoBaseDownload(fh, req)
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+        fh.close()
+    except Exception as e:
+        raise RuntimeError(f"Erro ao baixar o arquivo do Drive: {str(e)}")
 
 def FormatarValor(valor_str):
-    try: return float(valor_str) / 100
-    except: return None
+    try:
+        return float(valor_str) / 100
+    except:
+        return None
 
 def Processo(filename):
     with open(filename, 'r', encoding='utf-8') as f:
@@ -56,25 +67,28 @@ app = Flask(__name__)
 
 @app.route('/', methods=['POST'])
 def pesquisar():
-    pasta_id = "11XYVzfUxrBkGEvgQE6ZVkKaOntfFHfvh"
-    arquivos = request.json.get("ticker","").strip().upper()
+    pasta_id = os.getenv("DRIVE_FOLDER_ID", "11XYVzfUxrBkGEvgQE6ZVkKaOntfFHfvh")
+    ticker = request.json.get("ticker", "").strip().upper()
+
     file_id = encontrar_id_por_nome_na_pasta(pasta_id, "dados.txt")
-    
     if not file_id:
-        return jsonify({"status":"erro","msg":"dados.txt não encontrado"}), 404
+        return jsonify({"status": "erro", "msg": "dados.txt não encontrado"}), 404
+
     destino = '/tmp/dados.txt'
-    
-    baixar_drive(file_id, destino)
+    try:
+        baixar_drive(file_id, destino)
+    except Exception as e:
+        return jsonify({"status": "erro", "msg": str(e)}), 500
+
     df = Processo(destino)
-    
-    df_filtrado = df[df['Tick.'].str.contains(arquivos)]
-    
+    df_filtrado = df[df['Tick.'].str.contains(ticker)]
+
     gs = gspread.authorize(credentials)
     plan = gs.open("Análise de investimentos").worksheet("ETL")
-    
     plan.clear()
     set_with_dataframe(plan, df_filtrado)
-    return jsonify({"status":"ok","linhas":len(df_filtrado)})
+
+    return jsonify({"status": "ok", "linhas": len(df_filtrado)})
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
