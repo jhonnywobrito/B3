@@ -68,7 +68,7 @@ app = Flask(__name__)
 @app.route('/', methods=['POST'])
 def pesquisar():
     pasta_id = os.getenv("DRIVE_FOLDER_ID", "11XYVzfUxrBkGEvgQE6ZVkKaOntfFHfvh")
-    ticker = request.json.get("ticker", "").strip().upper()
+    ticker_busca = request.json.get("ticker", "").strip().upper()
 
     file_id = encontrar_id_por_nome_na_pasta(pasta_id, "dados.txt")
     if not file_id:
@@ -80,15 +80,42 @@ def pesquisar():
     except Exception as e:
         return jsonify({"status": "erro", "msg": str(e)}), 500
 
-    df = Processo(destino)
-    df_filtrado = df[df['Tick.'].str.contains(ticker)]
+    # 🔽 Processamento linha a linha, apenas com o ticker buscado
+    dados = []
+    try:
+        with open(destino, 'r', encoding='utf-8') as f:
+            next(f)  # pula header
+            for line in f:
+                ticker = line[12:17].strip()
+                if ticker == ticker_busca:
+                    d = line[2:10]
+                    dados.append({
+                        'Data': f"{d[6:8]}/{d[4:6]}/{d[0:4]}",
+                        'Tick.': ticker,
+                        'Abert.': FormatarValor(line[56:69]),
+                        'Max.': FormatarValor(line[69:82]),
+                        'Min.': FormatarValor(line[82:95]),
+                        'Fecham.': FormatarValor(line[108:121]),
+                        'Volume': int(line[152:170].lstrip('0') or '0')
+                    })
+    except Exception as e:
+        return jsonify({"status": "erro", "msg": f"Erro ao processar o arquivo: {str(e)}"}), 500
 
-    gs = gspread.authorize(credentials)
-    plan = gs.open("Análise de investimentos").worksheet("ETL")
-    plan.clear()
-    set_with_dataframe(plan, df_filtrado)
+    if not dados:
+        return jsonify({"status": "ok", "linhas": 0, "msg": "Nenhum dado encontrado para o ticker."})
+
+    df_filtrado = pd.DataFrame(dados)
+
+    try:
+        gs = gspread.authorize(credentials)
+        plan = gs.open("Análise de investimentos").worksheet("ETL")
+        plan.clear()
+        set_with_dataframe(plan, df_filtrado)
+    except Exception as e:
+        return jsonify({"status": "erro", "msg": f"Erro ao atualizar planilha: {str(e)}"}), 500
 
     return jsonify({"status": "ok", "linhas": len(df_filtrado)})
+
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
