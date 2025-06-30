@@ -1,17 +1,17 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify # type: ignore
 import gspread
-from gspread_dataframe import set_with_dataframe
+from gspread_dataframe import set_with_dataframe # type: ignore
 import json, os, io, pandas as pd
 from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload
+from googleapiclient.discovery import build # type: ignore
+from googleapiclient.http import MediaIoBaseDownload # type: ignore
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive.readonly"
 ]
 
-# Verifica e carrega as credenciais
+# credenciais
 cred_str = os.getenv('GOOGLE_CREDENTIALS')
 if not cred_str:
     raise RuntimeError("A variável de ambiente GOOGLE_CREDENTIALS não foi definida.")
@@ -20,7 +20,7 @@ keyfile_dict = json.loads(cred_str)
 credentials = service_account.Credentials.from_service_account_info(keyfile_dict, scopes=SCOPES)
 drive_service = build('drive', 'v3', credentials=credentials)
 
-def encontrar_id_por_nome_na_pasta(folder_id, nome_arquivo):
+def encontrar_id_pasta(folder_id, nome_arquivo):
     query = f"'{folder_id}' in parents and name = '{nome_arquivo}' and trashed = false"
     resp = drive_service.files().list(q=query, fields="files(id, name)").execute()
     arquivos = resp.get('files', [])
@@ -70,7 +70,7 @@ def pesquisar():
     pasta_id = os.getenv("DRIVE_FOLDER_ID", "11XYVzfUxrBkGEvgQE6ZVkKaOntfFHfvh")
     ticker_busca = request.json.get("ticker", "").strip().upper()
 
-    file_id = encontrar_id_por_nome_na_pasta(pasta_id, "dados.txt")
+    file_id = encontrar_id_pasta(pasta_id, "dados.txt")
     if not file_id:
         return jsonify({"status": "erro", "msg": "dados.txt não encontrado"}), 404
 
@@ -80,7 +80,6 @@ def pesquisar():
     except Exception as e:
         return jsonify({"status": "erro", "msg": str(e)}), 500
 
-    # 🔽 Processamento linha a linha, apenas com o ticker buscado
     dados = []
     try:
         with open(destino, 'r', encoding='utf-8') as f:
