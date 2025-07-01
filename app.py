@@ -20,11 +20,16 @@ keyfile_dict = json.loads(cred_str)
 credentials = service_account.Credentials.from_service_account_info(keyfile_dict, scopes=SCOPES)
 drive_service = build('drive', 'v3', credentials=credentials)
 
-def encontrar_id_pasta(folder_id, nome_arquivo):
-    query = f"'{folder_id}' in parents and name = '{nome_arquivo}' and trashed = false"
-    resp = drive_service.files().list(q=query, fields="files(id, name)").execute()
+def pegar_arquivo(folder_id):
+    query = f"'{folder_id}' in parents and trashed = false and mimeType = 'text/plain'"
+    resp = drive_service.files().list(
+        q=query,
+        fields="files(id, name, createdTime)",
+        orderBy="createdTime desc"
+    ).execute()
     arquivos = resp.get('files', [])
-    return arquivos[0]['id'] if arquivos else None
+    return arquivos[0] if arquivos else None
+
 
 def baixar_drive(file_id, destino):
     try:
@@ -67,14 +72,20 @@ app = Flask(__name__)
 
 @app.route('/', methods=['POST'])
 def pesquisar():
-    pasta_id = os.getenv("DRIVE_FOLDER_ID", "11XYVzfUxrBkGEvgQE6ZVkKaOntfFHfvh")
+    pasta_id = os.getenv("DRIVE_FOLDER_ID", "1p1Bsk_qCP1RWwrF8FaB4u5CxEmnKXmWGk4YGJhy2iEXTjM8N6DnVzbh0nqAKeiMACld3aG-M")
     ticker_busca = request.json.get("ticker", "").strip().upper()
 
-    file_id = encontrar_id_pasta(pasta_id, "dados.txt")
-    if not file_id:
-        return jsonify({"status": "erro", "msg": "dados.txt não encontrado"}), 404
+    file_info = pegar_arquivo(pasta_id)
+    if not file_info:
+        return jsonify({"status": "erro", "msg": "Nenhum arquivo encontrado na pasta"}), 404
 
-    destino = '/tmp/dados.txt'
+    file_id = file_info['id']
+    nome_arquivo = file_info['name']
+    if not nome_arquivo.lower().endswith(".txt"):
+        return jsonify({"status": "erro", "msg": f"O arquivo '{nome_arquivo}' não é um .txt válido."}), 400
+
+    destino = f"/tmp/{nome_arquivo}"
+    
     try:
         baixar_drive(file_id, destino)
     except Exception as e:
