@@ -49,25 +49,6 @@ def FormatarValor(valor_str):
     except:
         return None
 
-def Processo(filename):
-    with open(filename, 'r', encoding='utf-8') as f:
-        lines = f.readlines()[1:]
-    data = []
-    for line in lines:
-        ticker = line[12:18].strip()
-        if ticker.endswith('3 ') or ticker.endswith('4 '):
-            d = line[2:10]
-            data.append({
-                'Data': f"{d[6:8]}/{d[4:6]}/{d[0:4]}",
-                'Tick.': ticker,
-                'Abert.': FormatarValor(line[56:69]),
-                'Max.': FormatarValor(line[69:82]),
-                'Min.': FormatarValor(line[82:95]),
-                'Fecham.': FormatarValor(line[108:121]),
-                'Volume': int(line[152:170].lstrip('0') or '0')
-            })
-    return pd.DataFrame(data)
-
 app = Flask(__name__)
 
 @app.route('/', methods=['POST'])
@@ -97,7 +78,7 @@ def pesquisar():
             next(f)  # pula header
             for line in f:
                 ticker = line[12:17].strip()
-                if ticker == ticker_busca:
+                if ticker == ticker_busca and (ticker.endswith('3') or ticker == ticker_busca and ticker.endswith('4')):
                     d = line[2:10]
                     dados.append({
                         'Data': f"{d[6:8]}/{d[4:6]}/{d[0:4]}",
