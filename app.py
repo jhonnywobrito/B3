@@ -54,7 +54,7 @@ def Processo(filename):
         lines = f.readlines()[1:]
     data = []
     for line in lines:
-        ticker = line[12:17].strip()
+        ticker = line[12:18].strip()
         if ticker.endswith('3 ') or ticker.endswith('4 '):
             d = line[2:10]
             data.append({
