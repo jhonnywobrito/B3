@@ -55,7 +55,7 @@ def Processo(filename):
     data = []
     for line in lines:
         ticker = line[12:17].strip()
-        if ticker.endswith('3') or ticker.endswith('4'):
+        if ticker.endswith('3 ') or ticker.endswith('4 '):
             d = line[2:10]
             data.append({
                 'Data': f"{d[6:8]}/{d[4:6]}/{d[0:4]}",
