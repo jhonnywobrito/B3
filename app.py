@@ -77,8 +77,8 @@ def pesquisar():
         with open(destino, 'r', encoding='utf-8') as f:
             next(f)  # pula header
             for line in f:
-                ticker = line[12:17].strip()
-                if ticker == ticker_busca and (ticker.endswith('3') or ticker == ticker_busca and ticker.endswith('4')):
+                ticker = line[12:20].strip()
+                if ticker == ticker_busca:
                     d = line[2:10]
                     dados.append({
                         'Data': f"{d[6:8]}/{d[4:6]}/{d[0:4]}",
